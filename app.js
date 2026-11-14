@@ -329,7 +329,7 @@ $("btn-reveal").addEventListener("click", async () => {
     const ri = $("reveal-ideas");
     const rtags = data.recipient.tags || [];
     if (rtags.length) {
-      ri.innerHTML = `<h3 style="margin-top:16px">💡 Ideas según sus gustos: ${rtags.map(tasteIcon).join(" · ")}</h3><div class="product-grid" id="reveal-grid"></div>`;
+      ri.innerHTML = `<h3 style="margin-top:16px">💡 ¡Mira esto! según sus gustos: ${rtags.map(tasteIcon).join(" · ")}</h3><div class="product-grid" id="reveal-grid"></div>`;
       renderIdeas($("reveal-grid"), rtags);
     } else {
       ri.innerHTML = "";
@@ -340,6 +340,28 @@ $("btn-reveal").addEventListener("click", async () => {
 });
 $("flip").addEventListener("click", () => $("flip").classList.toggle("flipped"));
 $("btn-ideas-from-reveal").addEventListener("click", () => { closeSheets(); renderIdeas($("ideas-full")); setTimeout(() => openSheet("sheet-ideas"), 150); });
+
+// Agregar un producto de ¡Mira esto! a mi lista de deseos (además de comprar).
+document.addEventListener("click", async (e) => {
+  const btn = e.target.closest(".add-wish-btn");
+  if (!btn) return;
+  const p = PRODUCTS.find((x) => x.id === btn.dataset.id);
+  if (!p) return;
+  if (!group || !me) { toast("Primero crea o únete a un grupo para guardar deseos"); return; }
+  if (!group.wishlistEnabled) { toast("La lista de deseos está desactivada en este grupo"); return; }
+  btn.disabled = true;
+  try {
+    const data = await api("wish", { method: "POST", body: {
+      code: group.code, participantId: me.participantId, personalCode: me.personalCode,
+      text: p.name, price: p.price, link: amazonUrl(p.query),
+    }});
+    myWishesCache = data.wishlist;
+    renderMyWishes(myWishesCache);
+    toast("Agregado a tu lista 🎁");
+    await refreshGroup();
+  } catch (err) { toast(err.message); }
+  btn.disabled = false;
+});
 
 // --- Tienda de ideas: miniatura, precio, descripción e imagen ---
 function amazonUrl(query) {
@@ -355,6 +377,7 @@ function productCard(p, match) {
       <div class="p-price">${p.price}</div>
       <p>${escapeHtml(p.desc)}</p>
       <a href="${amazonUrl(p.query)}" target="_blank" rel="noopener sponsored">Comprar en Amazon ↗</a>
+      <button type="button" class="add-wish-btn" data-id="${p.id}">🎁 Agregar a mi lista</button>
     </div></div>`;
 }
 function renderIdeas(el, filterTags) {

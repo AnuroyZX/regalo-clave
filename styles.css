@@ -220,4 +220,11 @@ input:focus, select:focus { outline: none; border-color: var(--gold); }
   font-weight: 800; font-size: 13.5px; padding: 9px 10px; border-radius: 9px; text-decoration: none;
 }
 .product-card a:hover { background: #e8890c; }
+.product-card .add-wish-btn {
+  display: block; width: 100%; margin-top: 8px; padding: 9px 10px;
+  background: var(--pine); color: #fff; border: none; border-radius: 9px;
+  font-weight: 800; font-size: 13.5px; cursor: pointer;
+}
+.product-card .add-wish-btn:hover { background: var(--pine-dark); }
+.product-card .add-wish-btn:disabled { opacity: .5; cursor: not-allowed; }
 .product-card .p-match { font-size: 11px; font-weight: 800; color: var(--pine); text-transform: uppercase; letter-spacing: .4px; }
