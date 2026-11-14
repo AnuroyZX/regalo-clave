@@ -38,6 +38,7 @@ const PRODUCTS = [
 let group = null;      // estado público del grupo
 let me = null;         // { participantId, codeName, organizerToken?, personalCode? (legado) }
 let session = null;    // { token, email, name, guest } — tu sesión persistente
+let resetToken = "";   // token de restablecer contraseña (?reset=...)
 let currentScreen = "screen-welcome";
 let pollTimer = null;
 
@@ -307,6 +308,26 @@ $("btn-change-password").addEventListener("click", async () => {
     toast("Contraseña actualizada 🔑");
   } catch (e) { toast(e.message); }
 });
+$("btn-show-forgot").addEventListener("click", () => { $("form-login").classList.add("hidden"); $("form-register").classList.add("hidden"); $("form-forgot").classList.remove("hidden"); });
+$("btn-back-login").addEventListener("click", () => { $("form-forgot").classList.add("hidden"); $("form-login").classList.remove("hidden"); });
+$("btn-send-reset").addEventListener("click", async () => {
+  const email = $("a-forgot-email").value.trim();
+  if (!email) return toast("Escribe tu correo");
+  try {
+    const data = await api("reset-request", { method: "POST", body: { email } });
+    toast(data.emailSent ? "Revisa tu correo 📬 Te enviamos el enlace" : "No pudimos enviar el correo. Inténtalo más tarde.");
+  } catch (e) { toast(e.message); }
+});
+$("btn-do-reset").addEventListener("click", async () => {
+  const next = $("r-password").value;
+  if (!next) return toast("Escribe tu contraseña nueva");
+  try {
+    await api("reset-password", { method: "POST", body: { token: resetToken, newPassword: next } });
+    closeSheets();
+    toast("Contraseña actualizada 🔑 Ya puedes entrar");
+    renderAccount(); openSheet("sheet-account");
+  } catch (e) { toast(e.message); }
+});
 $("btn-sheet-account").addEventListener("click", () => { closeSheets(); renderAccount(); setTimeout(() => openSheet("sheet-account"), 150); });
 
 // --- Grupo ---
@@ -526,4 +547,6 @@ function escapeHtml(s) {
     $("j-code").value = code;
     show("screen-setup");
   }
+  const reset = params.get("reset") || "";
+  if (reset) { resetToken = reset; openSheet("sheet-reset"); }
 })();

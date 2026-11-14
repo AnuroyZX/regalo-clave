@@ -266,6 +266,68 @@ export default async (req) => {
       return json({ ok: true });
     }
 
+    // --- Restablecer contraseña por correo (Resend) ---
+    async function sendResetEmail(to, link) {
+      const key = process.env.RESEND_API_KEY;
+      const from = process.env.RESEND_FROM || "Regalo Clave <onboarding@resend.dev>";
+      if (!key) return { ok: false, error: "missing_key" };
+      try {
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from,
+            to,
+            subject: "Restablece tu contraseña de Regalo Clave 🎄",
+            html: `<p>¡Hola!</p><p>Pediste restablecer tu contraseña de Regalo Clave. Toca el botón para elegir una nueva (vale 1 hora):</p><p><a href="${link}" style="display:inline-block;background:#b91c1c;color:#fff;padding:12px 22px;border-radius:12px;text-decoration:none;font-weight:bold">Restablecer mi contraseña</a></p><p>O copia este enlace: ${link}</p><p>Si no pediste esto, ignora este correo.</p>`,
+          }),
+        });
+        return { ok: res.ok };
+      } catch { return { ok: false, error: "send_failed" }; }
+    }
+
+    if (req.method === "POST" && action === "reset-request") {
+      const b = await req.json();
+      const email = String(b.email || "").trim().toLowerCase();
+      const resets = store("regalo-clave-resets");
+      const user = /^\S+@\S+\.\S+$/.test(email) ? await getJSON(users, email) : null;
+      let emailSent = false;
+      if (user) {
+        const token = randomBytes(32).toString("hex");
+        await resets.setJSON(token, { email, expiresAt: new Date(Date.now() + 3600e3).toISOString() });
+        const base = (process.env.URL || "https://regalo-clave.netlify.app").replace(/\/$/, "");
+        const sent = await sendResetEmail(email, `${base}/?reset=${token}`);
+        emailSent = sent.ok;
+      }
+      // Siempre responde ok para no revelar si el correo tiene cuenta.
+      return json({ ok: true, emailSent });
+    }
+
+    if (req.method === "POST" && action === "reset-password") {
+      const b = await req.json();
+      const token = String(b.token || "");
+      const next = String(b.newPassword || "");
+      if (next.length < 6) return bad("La nueva contraseña necesita al menos 6 caracteres.");
+      const resets = store("regalo-clave-resets");
+      const rec = await getJSON(resets, token);
+      if (!rec || !rec.email) return bad("El enlace ya no es válido. Pide uno nuevo.", 400);
+      if (Date.parse(rec.expiresAt) < Date.now()) { await resets.delete(token).catch(() => {}); return bad("El enlace caducó. Pide uno nuevo.", 400); }
+      const user = await getJSON(users, rec.email);
+      if (!user) return bad("El enlace ya no es válido.", 400);
+      user.hash = hashPassword(next);
+      await users.setJSON(rec.email, user);
+      await resets.delete(token).catch(() => {});
+      // Cierra las sesiones de esa cuenta: hay que entrar de nuevo.
+      try {
+        const listed = await sessions.list();
+        for (const item of listed.blobs || []) {
+          const s2 = await getJSON(sessions, item.key);
+          if (s2?.email === rec.email) await sessions.delete(item.key).catch(() => {});
+        }
+      } catch {}
+      return json({ ok: true });
+    }
+
     // Mis grupos: para volver a entrar desde otro dispositivo con mi cuenta.
     if (req.method === "GET" && action === "mygroups") {
       const s = await resolveSession(sessions, url.searchParams.get("token") || "");

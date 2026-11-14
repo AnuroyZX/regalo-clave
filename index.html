@@ -35,7 +35,7 @@
       <p>Porque el misterio es la mitad de la diversión. Nadie sabe quién le toca, nadie puede hacer trampa mirando la lista, y el día del intercambio cada regalo llega con una tarjeta firmada solo con el nombre clave.</p>
       <p style="margin-top:10px"><span class="chip">🎅 Papá Noel</span><span class="chip red">🐱 Gatito Mimado</span><span class="chip gold">🦌 Rodolfo el Reno</span><span class="chip">🍪 Galleta de Jengibre</span></p>
     </div>
-    <div class="adslot"><b>Patrocinado</b>Espacio para anuncios. Aquí iría tu anuncio cuando actives la publicidad.</div>
+    <div class="adslot hidden" id="adslot-welcome"><b>Patrocinado</b></div>
   </section>
 
   <!-- 1 · Crear / unirse -->
@@ -46,7 +46,7 @@
         <label for="g-name">Nombre del grupo</label>
         <input id="g-name" maxlength="60" placeholder="Ej. Intercambio familia Díaz">
         <label for="g-organizer">Tu nombre (solo lo ve el organizador)</label>
-        <input id="g-organizer" maxlength="40" placeholder="Ej. Carlos">
+        <input id="g-organizer" maxlength="40" placeholder="Ej. Ana">
         <label>¿Qué te gusta? Toca tus gustos</label>
         <div class="tag-picker" id="tags-create"></div>
         <div class="row">
@@ -112,7 +112,7 @@
       <button class="btn" id="btn-draw" type="button">🎲 Hacer el sorteo secreto</button>
       <p class="small" style="margin-top:8px">Se necesitan al menos 3 participantes. Nadie se regala a sí mismo.</p>
     </div>
-    <div class="adslot"><b>Patrocinado</b>Espacio para anuncios. Aquí iría tu anuncio cuando actives la publicidad.</div>
+    <div class="adslot hidden" id="adslot-group"><b>Patrocinado</b></div>
   </section>
 
   <!-- 3 · Deseos -->
@@ -217,11 +217,19 @@
         <label for="a-password">Contraseña</label>
         <input id="a-password" type="password" maxlength="80" placeholder="Tu contraseña" autocomplete="current-password">
         <button class="btn" id="btn-login" type="button">Entrar</button>
+        <p class="small center" style="margin-top:12px"><button class="linklike" id="btn-show-forgot" type="button">¿Olvidaste tu contraseña?</button></p>
         <p class="small center" style="margin-top:12px">¿No tienes cuenta? <button class="linklike" id="btn-show-register" type="button">Crear una gratis</button></p>
+      </div>
+      <div id="form-forgot" class="hidden">
+        <p class="small">Te enviamos un enlace a tu correo para elegir una contraseña nueva.</p>
+        <label for="a-forgot-email">Correo electrónico</label>
+        <input id="a-forgot-email" type="email" maxlength="80" placeholder="tucorreo@ejemplo.com" autocomplete="email">
+        <button class="btn" id="btn-send-reset" type="button">Enviar enlace</button>
+        <p class="small center" style="margin-top:12px"><button class="linklike" id="btn-back-login" type="button">Volver a entrar</button></p>
       </div>
       <div id="form-register" class="hidden">
         <label for="a-name">Tu nombre</label>
-        <input id="a-name" maxlength="40" placeholder="Ej. Carlos">
+        <input id="a-name" maxlength="40" placeholder="Ej. Ana">
         <label for="a-email-reg">Correo electrónico</label>
         <input id="a-email-reg" type="email" maxlength="80" placeholder="tucorreo@ejemplo.com" autocomplete="email">
         <label for="a-password-reg">Contraseña (mínimo 6 caracteres)</label>
@@ -274,6 +282,18 @@
     <h2>💡 ¡Mira esto!</h2>
     <p class="small" style="margin-bottom:12px">Ideas con foto, precio y descripción. Agrégalas a tu lista de deseos para que tu amigo secreto sepa qué regalarte.</p>
     <div id="ideas-full"></div>
+  </div>
+</div>
+
+<!-- Pantalla emergente: restablecer contraseña -->
+<div class="sheet" id="sheet-reset">
+  <div class="sheet-box">
+    <div class="sheet-grip"></div>
+    <h2 class="center">🔑 Nueva contraseña</h2>
+    <p class="small center">Elige una contraseña nueva para tu cuenta.</p>
+    <label for="r-password">Contraseña nueva (mínimo 6 caracteres)</label>
+    <input id="r-password" type="password" maxlength="80" autocomplete="new-password">
+    <button class="btn" id="btn-do-reset" type="button">Guardar contraseña</button>
   </div>
 </div>
 
