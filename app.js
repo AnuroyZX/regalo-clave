@@ -3,11 +3,6 @@ const API = "/.netlify/functions/api";
 const $ = (id) => document.getElementById(id);
 const ME_KEY = "rc_me_v1";
 
-// Tu tag de Amazon Afiliados (lo ves como tag=XXXX-20 en tus enlaces).
-// Pídele a Carlos su tag y ponlo aquí: sin tag, los enlaces funcionan
-// pero no generan comisión.
-const AFFILIATE_TAG = "";
-
 const TASTES = [
   { icon: "🎧", label: "Tecnología" },
   { icon: "🍳", label: "Cocina" },
@@ -24,7 +19,7 @@ const TASTES = [
 ];
 
 // Catálogo de la tienda: foto, precio, descripción y gustos que cubre.
-// La imagen es ilustrativa; el botón lleva a Amazon con tu tag de afiliado.
+// La imagen es ilustrativa; el botón agrega el producto a tu lista de deseos.
 const PRODUCTS = [
   { id: "taza", name: "Taza navideña de cerámica", price: "$199", desc: "Taza grande con diseño festivo, ideal con chocolate caliente.", img: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=400&q=80", tags: ["Cocina", "Hogar"], query: "taza navideña cerámica" },
   { id: "audifonos", name: "Audífonos inalámbricos", price: "$899", desc: "Sonido claro, batería para todo el día y estuche de carga.", img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80", tags: ["Tecnología", "Música"], query: "audífonos inalámbricos bluetooth" },
@@ -353,7 +348,7 @@ document.addEventListener("click", async (e) => {
   try {
     const data = await api("wish", { method: "POST", body: {
       code: group.code, participantId: me.participantId, personalCode: me.personalCode,
-      text: p.name, price: p.price, link: amazonUrl(p.query),
+      text: p.name, price: p.price, link: "",
     }});
     myWishesCache = data.wishlist;
     renderMyWishes(myWishesCache);
@@ -364,10 +359,6 @@ document.addEventListener("click", async (e) => {
 });
 
 // --- Tienda de ideas: miniatura, precio, descripción e imagen ---
-function amazonUrl(query) {
-  const base = "https://www.amazon.com.mx/s?k=" + encodeURIComponent(query);
-  return AFFILIATE_TAG ? base + "&tag=" + encodeURIComponent(AFFILIATE_TAG) : base;
-}
 function productCard(p, match) {
   return `<div class="product-card">
     <img src="${p.img}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='https://picsum.photos/seed/${p.id}/400/300'">
@@ -376,7 +367,6 @@ function productCard(p, match) {
       <h4>${escapeHtml(p.name)}</h4>
       <div class="p-price">${p.price}</div>
       <p>${escapeHtml(p.desc)}</p>
-      <a href="${amazonUrl(p.query)}" target="_blank" rel="noopener sponsored">Comprar en Amazon ↗</a>
       <button type="button" class="add-wish-btn" data-id="${p.id}">🎁 Agregar a mi lista</button>
     </div></div>`;
 }
