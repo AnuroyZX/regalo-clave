@@ -223,6 +223,8 @@ function setCodenameNote() {
   el.textContent = session?.email
     ? "Tu cuenta es " + session.email + ": con ella vuelves a entrar a tus grupos desde cualquier teléfono."
     : "Tu sesión quedó guardada en este navegador. Crea tu cuenta con tu correo para volver a entrar desde cualquier teléfono.";
+  const btn = $("btn-sheet-account");
+  if (btn) btn.classList.toggle("hidden", !!session?.email);
 }
 
 // --- Cuenta con correo ---
