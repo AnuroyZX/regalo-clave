@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Regalo Clave 🎄 — Intercambio de regalos con nombres clave</title>
+<meta name="description" content="Crea un grupo de intercambio de regalos o cartas. Cada persona recibe un nombre clave secreto y solo descubre a quién le regala.">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app">
+  <div class="topbar">
+    <div class="logo">🎄 Regalo <span>Clave</span></div>
+    <button id="btn-how" type="button">¿Cómo funciona?</button>
+  </div>
+  <div class="progress" id="progress"><i class="on"></i><i></i><i></i><i></i></div>
+
+  <!-- 0 · Bienvenida -->
+  <section class="screen active" id="screen-welcome">
+    <div class="card center">
+      <div class="hero-emoji">🎁🎄✨</div>
+      <h1>El intercambio donde nadie sabe quién le regala</h1>
+      <p class="lead">Crea un grupo, cada persona recibe un <b>nombre clave secreto</b> (como Papá Noel o Gatito Mimado) y solo descubre el nombre clave de la persona a la que le va a regalar.</p>
+      <button class="btn" id="btn-go-create" type="button">🎄 Crear mi grupo</button>
+      <button class="btn green" id="btn-go-join" type="button">🔑 Unirme con un código</button>
+      <button class="btn ghost" id="btn-go-demo" type="button">Ver ideas de regalo</button>
+    </div>
+    <div class="card green">
+      <h2>¿Por qué con nombres clave?</h2>
+      <p>Porque el misterio es la mitad de la diversión. Nadie sabe quién le toca, nadie puede hacer trampa mirando la lista, y el día del intercambio cada regalo llega con una tarjeta firmada solo con el nombre clave.</p>
+      <p style="margin-top:10px"><span class="chip">🎅 Papá Noel</span><span class="chip red">🐱 Gatito Mimado</span><span class="chip gold">🦌 Rodolfo el Reno</span><span class="chip">🍪 Galleta de Jengibre</span></p>
+    </div>
+  </section>
+
+  <!-- 1 · Crear / unirse -->
+  <section class="screen" id="screen-setup">
+    <div class="card">
+      <h2 id="setup-title">Crea tu grupo</h2>
+      <div id="form-create">
+        <label for="g-name">Nombre del grupo</label>
+        <input id="g-name" maxlength="60" placeholder="Ej. Intercambio familia Díaz">
+        <label for="g-organizer">Tu nombre (solo lo ve el organizador)</label>
+        <input id="g-organizer" maxlength="40" placeholder="Ej. Carlos">
+        <div class="row">
+          <div>
+            <label for="g-date">Fecha del intercambio</label>
+            <input id="g-date" type="date">
+          </div>
+          <div>
+            <label for="g-budget">Presupuesto (MXN)</label>
+            <input id="g-budget" type="number" min="0" placeholder="300">
+          </div>
+        </div>
+        <label for="g-type">¿Qué se intercambia?</label>
+        <select id="g-type">
+          <option value="ambos">Regalos y cartas</option>
+          <option value="regalos">Solo regalos</option>
+          <option value="cartas">Solo cartas</option>
+        </select>
+        <div class="toggle">
+          <span>🎁 Lista de deseos activada</span>
+          <label class="switch"><input type="checkbox" id="g-wishlist" checked><span class="slider"></span></label>
+        </div>
+        <button class="btn" id="btn-create" type="button">Crear grupo y recibir mi nombre clave</button>
+      </div>
+      <div id="form-join" class="hidden">
+        <label for="j-code">Código del grupo</label>
+        <input id="j-code" maxlength="6" placeholder="Ej. 3NBKVD" style="text-transform:uppercase; letter-spacing:4px; font-weight:800;">
+        <label for="j-name">Tu nombre (solo lo ve el organizador)</label>
+        <input id="j-name" maxlength="40" placeholder="Ej. Mariana">
+        <button class="btn green" id="btn-join" type="button">Unirme y recibir mi nombre clave</button>
+        <p class="small" style="margin-top:12px">Al unirte recibirás tu nombre clave y un código personal secreto. Guárdalo: lo necesitarás para ver tu lista de deseos y revelar a quién te toca regalar.</p>
+      </div>
+      <button class="btn ghost" id="btn-back-welcome" type="button">← Atrás</button>
+    </div>
+  </section>
+
+  <!-- 2 · Mi grupo -->
+  <section class="screen" id="screen-group">
+    <div class="card">
+      <h2 id="grp-name">Mi grupo</h2>
+      <p id="grp-meta" class="small"></p>
+      <div class="codebox"><span>Código del grupo</span><b id="grp-code">······</b><button id="btn-copy-code" type="button">Copiar</button></div>
+      <button class="btn gold" id="btn-invite" type="button">📣 Invitar a mis amigos</button>
+      <div id="my-codename-wrap">
+        <p class="small center" style="margin-top:14px">Tu nombre clave es</p>
+        <div class="codename" id="my-codename">···</div>
+        <p class="small center">Tu código personal secreto: <b id="my-personal">····</b> <span style="color:var(--red)">· no lo compartas</span></p>
+      </div>
+    </div>
+    <div class="card green">
+      <h3>🎅 Quiénes ya están dentro</h3>
+      <p class="small" style="margin-bottom:6px">Solo se ven los nombres clave, nunca los nombres reales.</p>
+      <div id="participants"></div>
+      <button class="btn green" id="btn-next-wishes" type="button">Continuar a mi lista de deseos →</button>
+    </div>
+    <div class="card gold hidden" id="organizer-card">
+      <h3>⚙️ Configuración del organizador</h3>
+      <div class="toggle">
+        <span>🎁 Lista de deseos activada para el grupo</span>
+        <label class="switch"><input type="checkbox" id="org-wishlist"><span class="slider"></span></label>
+      </div>
+      <button class="btn" id="btn-draw" type="button">🎲 Hacer el sorteo secreto</button>
+      <p class="small" style="margin-top:8px">Se necesitan al menos 3 participantes. Nadie se regala a sí mismo.</p>
+    </div>
+    <div class="adslot"><b>Patrocinado</b>Espacio para anuncios. Aquí iría tu anuncio cuando actives la publicidad.</div>
+  </section>
+
+  <!-- 3 · Deseos -->
+  <section class="screen" id="screen-wishes">
+    <div class="card">
+      <h2>🎁 Mi lista de deseos</h2>
+      <p id="wishes-note">Tu amigo secreto verá esta lista y sabrá qué regalarte, sin saber quién eres.</p>
+      <div id="wishes-off" class="hidden"><p>La lista de deseos está desactivada en este grupo. Pídele al organizador que la active en la configuración.</p></div>
+      <div id="wishes-on">
+        <label for="w-text">¿Qué te gustaría recibir?</label>
+        <input id="w-text" maxlength="120" placeholder="Ej. Una taza bonita, un libro...">
+        <div class="row">
+          <div><label for="w-price">Precio aprox.</label><input id="w-price" maxlength="30" placeholder="$250"></div>
+          <div><label for="w-link">Enlace (opcional)</label><input id="w-link" maxlength="300" placeholder="https://..."></div>
+        </div>
+        <button class="btn" id="btn-add-wish" type="button">Agregar a mi lista</button>
+        <div id="my-wishes" style="margin-top:14px"></div>
+      </div>
+      <div class="row">
+        <button class="btn ghost" id="btn-back-group" type="button">← Al grupo</button>
+        <button class="btn green" id="btn-next-draw" type="button">Ir al sorteo →</button>
+      </div>
+    </div>
+    <div class="card gold">
+      <h3>💡 Ideas para regalar</h3>
+      <p class="small" style="margin-bottom:10px">Enlaces de afiliado: si alguien compra desde aquí, el grupo gana una comisión sin que pague más.</p>
+      <div id="ideas"></div>
+    </div>
+  </section>
+
+  <!-- 4 · Sorteo -->
+  <section class="screen" id="screen-draw">
+    <div class="card center">
+      <div class="hero-emoji">🎲</div>
+      <h2>El sorteo secreto</h2>
+      <p id="draw-status">El organizador aún no hace el sorteo. Cuando esté listo, aquí revelarás a quién te toca regalar.</p>
+      <button class="btn hidden" id="btn-reveal" type="button">✨ Revelar mi amigo secreto</button>
+      <button class="btn ghost" id="btn-back-wishes" type="button">← A mi lista de deseos</button>
+    </div>
+    <div class="card green">
+      <h3>🎅 Participantes</h3>
+      <div id="draw-participants"></div>
+    </div>
+  </section>
+
+  <p class="footer">Hecho con 🎄 por Regalo Clave · Los nombres clave mantienen el misterio: solo el servidor sabe quién es quién.<br>¿Tienes un grupo? Entra con su código, es gratis.</p>
+</div>
+
+<!-- Pantalla emergente: cómo funciona -->
+<div class="sheet" id="sheet-how">
+  <div class="sheet-box">
+    <div class="sheet-grip"></div>
+    <button class="sheet-close" data-close type="button">✕</button>
+    <h2>¿Cómo funciona?</h2>
+    <ol class="steps">
+      <li><div><b>Crea tu grupo</b><p>Ponle nombre, fecha y presupuesto. Tú eres el organizador.</p></div></li>
+      <li><div><b>Comparte el código</b><p>Tus amigos entran con el código y cada uno recibe un nombre clave secreto y un código personal.</p></div></li>
+      <li><div><b>Armen su lista de deseos</b><p>Si está activada, cada quien anota qué le gustaría recibir.</p></div></li>
+      <li><div><b>Sorteo secreto</b><p>El organizador hace el sorteo y cada quien revela en privado a qué nombre clave le regala.</p></div></li>
+    </ol>
+    <button class="btn" data-close type="button">¡Entendido!</button>
+  </div>
+</div>
+
+<!-- Pantalla emergente: invitación -->
+<div class="sheet" id="sheet-invite">
+  <div class="sheet-box">
+    <div class="sheet-grip"></div>
+    <button class="sheet-close" data-close type="button">✕</button>
+    <h2>📣 Invita a tu grupo</h2>
+    <p>Comparte este mensaje con tus amigos:</p>
+    <div class="card" style="margin-top:12px; background:#f7f1e3; box-shadow:none;">
+      <p id="invite-text" style="color:var(--ink); white-space:pre-line;"></p>
+    </div>
+    <button class="btn" id="btn-copy-invite" type="button">Copiar invitación</button>
+  </div>
+</div>
+
+<!-- Pantalla emergente: nombre clave al unirse -->
+<div class="sheet" id="sheet-codename">
+  <div class="sheet-box">
+    <div class="sheet-grip"></div>
+    <h2 class="center">🎉 ¡Ya estás dentro!</h2>
+    <p class="center">Tu nombre clave secreto es</p>
+    <div class="codename" id="sheet-codename-value">···</div>
+    <p class="center">Tu código personal secreto es <b id="sheet-personal-value" style="font-size:20px;">····</b><br><span class="small">Guárdalo en un lugar seguro. Sin él no podrás revelar a quién te toca regalar.</span></p>
+    <button class="btn" data-close type="button">Lo tengo, ¡vamos!</button>
+  </div>
+</div>
+
+<!-- Pantalla emergente: revelación -->
+<div class="sheet" id="sheet-reveal">
+  <div class="sheet-box">
+    <div class="sheet-grip"></div>
+    <button class="sheet-close" data-close type="button">✕</button>
+    <h2 class="center">✨ Tu amigo secreto es...</h2>
+    <p class="center small">Toca la tarjeta para revelarlo. Solo tú estás viendo esto.</p>
+    <div class="flip" id="flip">
+      <div class="flip-inner">
+        <div class="flip-face flip-front"><div class="big">🎁</div><b>Toca para revelar</b></div>
+        <div class="flip-face flip-back"><span>Te toca regalarle a</span><div class="who" id="reveal-who">···</div><span id="reveal-budget" class="small"></span></div>
+      </div>
+    </div>
+    <div id="reveal-wishlist"></div>
+    <button class="btn gold" id="btn-ideas-from-reveal" type="button">💡 Ver ideas para su regalo</button>
+  </div>
+</div>
+
+<!-- Pantalla emergente: ideas -->
+<div class="sheet" id="sheet-ideas">
+  <div class="sheet-box">
+    <div class="sheet-grip"></div>
+    <button class="sheet-close" data-close type="button">✕</button>
+    <h2>💡 Ideas para regalar</h2>
+    <p class="small" style="margin-bottom:12px">Enlaces de afiliado de ejemplo: si compras desde aquí, Regalo Clave gana una pequeña comisión sin costo extra para ti.</p>
+    <div id="ideas-full"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
