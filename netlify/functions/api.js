@@ -60,17 +60,19 @@ function pickCodename(used) {
   while (used.has(`${base} ${n}`)) n++;
   return `${base} ${n}`;
 }
-function addParticipant(group, name) {
+function addParticipant(group, name, tags) {
   const clean = String(name || "").trim().slice(0, 40);
   if (!clean) return null;
   if (group.participants.some((p) => p.name.toLowerCase() === clean.toLowerCase())) return null;
   const usedNames = new Set(group.participants.map((p) => p.codeName));
   const usedCodes = new Set(group.participants.map((p) => p.personalCode));
+  const cleanTags = Array.isArray(tags) ? tags.filter((t) => typeof t === "string").map((t) => t.trim().slice(0, 30)).filter(Boolean).slice(0, 6) : [];
   const p = {
     id: uid(),
     name: clean,
     codeName: pickCodename(usedNames),
     personalCode: personalCode(usedCodes),
+    tags: cleanTags,
     wishlist: [],
   };
   group.participants.push(p);
@@ -88,6 +90,7 @@ function publicGroup(group) {
     participants: group.participants.map((p) => ({
       id: p.id,
       codeName: p.codeName,
+      tags: p.tags || [],
       wishlistCount: p.wishlist.length,
     })),
   };
@@ -139,7 +142,7 @@ export default async (req) => {
         drawn: false,
         createdAt: new Date().toISOString(),
       };
-      const me = addParticipant(group, organizerName);
+      const me = addParticipant(group, organizerName, b.organizerTags);
       await s.setJSON(group.code, group);
       return json({ ok: true, group: publicGroup(group), me, organizerToken: group.organizerToken });
     }
@@ -150,7 +153,7 @@ export default async (req) => {
       const group = await s.get(code, { type: "json" }).catch(() => null) ?? (await s.get(code));
       if (!group) return bad("No encontré un grupo con ese código.", 404);
       if (group.drawn) return bad("El sorteo ya se hizo, ya no se puede unir nadie.");
-      const me = addParticipant(group, b.name);
+      const me = addParticipant(group, b.name, b.tags);
       if (!me) return bad("Ese nombre ya está en el grupo o está vacío.");
       await s.setJSON(group.code, group);
       return json({ ok: true, group: publicGroup(group), me });
@@ -227,6 +230,7 @@ export default async (req) => {
         ok: true,
         recipient: {
           codeName: recipient.codeName,
+          tags: recipient.tags || [],
           wishlist: recipient.wishlist,
           wishlistEnabled: group.wishlistEnabled,
         },

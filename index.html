@@ -8,6 +8,7 @@
 <link rel="stylesheet" href="styles.css">
 </head>
 <body>
+<div id="snowfall" aria-hidden="true"></div>
 <div class="app">
   <div class="topbar">
     <div class="logo">🎄 Regalo <span>Clave</span></div>
@@ -41,6 +42,8 @@
         <input id="g-name" maxlength="60" placeholder="Ej. Intercambio familia Díaz">
         <label for="g-organizer">Tu nombre (solo lo ve el organizador)</label>
         <input id="g-organizer" maxlength="40" placeholder="Ej. Carlos">
+        <label>¿Qué te gusta? Toca tus gustos</label>
+        <div class="tag-picker" id="tags-create"></div>
         <div class="row">
           <div>
             <label for="g-date">Fecha del intercambio</label>
@@ -68,6 +71,8 @@
         <input id="j-code" maxlength="6" placeholder="Ej. 3NBKVD" style="text-transform:uppercase; letter-spacing:4px; font-weight:800;">
         <label for="j-name">Tu nombre (solo lo ve el organizador)</label>
         <input id="j-name" maxlength="40" placeholder="Ej. Mariana">
+        <label>¿Qué te gusta? Toca tus gustos</label>
+        <div class="tag-picker" id="tags-join"></div>
         <button class="btn green" id="btn-join" type="button">Unirme y recibir mi nombre clave</button>
         <p class="small" style="margin-top:12px">Al unirte recibirás tu nombre clave y un código personal secreto. Guárdalo: lo necesitarás para ver tu lista de deseos y revelar a quién te toca regalar.</p>
       </div>
@@ -128,9 +133,9 @@
       </div>
     </div>
     <div class="card gold">
-      <h3>💡 Ideas para regalar</h3>
-      <p class="small" style="margin-bottom:10px">Enlaces de afiliado: si alguien compra desde aquí, el grupo gana una comisión sin que pague más.</p>
-      <div id="ideas"></div>
+      <h3>🛍️ Tienda de ideas para regalar</h3>
+      <p class="small" style="margin-bottom:10px">Sugerencias con foto, precio y descripción. Si compras desde aquí, el grupo gana una comisión sin que pagues más.</p>
+      <div id="ideas" class="product-grid"></div>
     </div>
   </section>
 
@@ -208,7 +213,8 @@
       </div>
     </div>
     <div id="reveal-wishlist"></div>
-    <button class="btn gold" id="btn-ideas-from-reveal" type="button">💡 Ver ideas para su regalo</button>
+    <div id="reveal-ideas"></div>
+    <button class="btn gold" id="btn-ideas-from-reveal" type="button">💡 Ver todas las ideas para regalar</button>
   </div>
 </div>
 

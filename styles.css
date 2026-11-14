@@ -20,14 +20,18 @@ body {
   color: var(--ink);
   overflow-x: hidden;
 }
-body::before {
-  content: "❄ ❄ ❄ ❄ ❄ ❄ ❄ ❄ ❄ ❄";
-  position: fixed; top: -10px; left: 0; right: 0;
-  color: rgba(255,255,255,.5); font-size: 18px; letter-spacing: 34px;
-  pointer-events: none; z-index: 0;
-  animation: snowfall 14s linear infinite;
+/* Copos de nieve: se generan por JavaScript con posición, tamaño,
+   velocidad y balanceo aleatorios por toda la pantalla. */
+#snowfall { position: fixed; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.snowflake {
+  position: absolute; top: -12px; color: rgba(255,255,255,.9);
+  pointer-events: none; user-select: none;
+  animation-name: snow-fall, snow-sway;
+  animation-timing-function: linear, ease-in-out;
+  animation-iteration-count: infinite, infinite;
 }
-@keyframes snowfall { from { transform: translateY(-30px); } to { transform: translateY(110vh); } }
+@keyframes snow-fall { from { transform: translateY(-5vh); } to { transform: translateY(108vh); } }
+@keyframes snow-sway { 0%, 100% { margin-left: 0; } 50% { margin-left: 26px; } }
 
 .app { position: relative; z-index: 1; max-width: 520px; margin: 0 auto; min-height: 100vh; padding: 18px 16px 40px; }
 .topbar { display: flex; align-items: center; justify-content: space-between; color: #fff; padding: 6px 4px 14px; }
@@ -189,3 +193,31 @@ input:focus, select:focus { outline: none; border-color: var(--gold); }
   .sheet { align-items: center; }
   .sheet-box { border-radius: 24px; animation: sheetUp .34s ease both; }
 }
+
+/* Etiquetas de gustos */
+.tag-picker { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+.tag-chip {
+  border: 2px solid #e8dcc8; background: #fff; color: var(--pine-dark);
+  border-radius: 999px; padding: 8px 14px; font-size: 14px; font-weight: 700;
+  cursor: pointer; transition: .15s;
+}
+.tag-chip:hover { border-color: var(--gold); }
+.tag-chip.on { background: var(--red); border-color: var(--red); color: #fff; }
+
+/* Tienda de ideas: tarjeta con miniatura, precio y descripción */
+.product-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.product-card {
+  border: 1px solid #f0e7d6; border-radius: 16px; overflow: hidden;
+  background: #fff; display: flex; flex-direction: column;
+}
+.product-card img { width: 100%; height: 120px; object-fit: cover; display: block; background: #f3ead6; }
+.product-card .p-body { padding: 10px 12px 12px; display: flex; flex-direction: column; flex: 1; }
+.product-card h4 { font-size: 14.5px; color: var(--pine-dark); line-height: 1.3; }
+.product-card .p-price { font-size: 17px; font-weight: 800; color: var(--red); margin: 4px 0; }
+.product-card p { font-size: 12.5px; margin-bottom: 10px; flex: 1; }
+.product-card a {
+  display: block; text-align: center; background: #ff9900; color: #231f20;
+  font-weight: 800; font-size: 13.5px; padding: 9px 10px; border-radius: 9px; text-decoration: none;
+}
+.product-card a:hover { background: #e8890c; }
+.product-card .p-match { font-size: 11px; font-weight: 800; color: var(--pine); text-transform: uppercase; letter-spacing: .4px; }

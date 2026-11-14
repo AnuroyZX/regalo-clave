@@ -3,13 +3,41 @@ const API = "/.netlify/functions/api";
 const $ = (id) => document.getElementById(id);
 const ME_KEY = "rc_me_v1";
 
-const IDEAS = [
-  { tag: "Para todos", name: "Taza navideña personalizada", price: "$199", desc: "Un clásico que siempre cae bien, con chocolate incluido.", url: "https://www.amazon.com.mx/s?k=taza+navide%C3%B1a+personalizada" },
-  { tag: "Para consentir", name: "Set de velas aromáticas", price: "$349", desc: "Para una tarde tranquila en casa, huele a Navidad.", url: "https://www.amazon.com.mx/s?k=set+velas+aromaticas+regalo" },
-  { tag: "Para leer", name: "Libro sorpresa de temporada", price: "$299", desc: "Elige una novela ligera: nunca falla.", url: "https://www.amazon.com.mx/s?k=libros+regalo+navidad" },
-  { tag: "Para jugar", name: "Juego de mesa familiar", price: "$499", desc: "Para que el intercambio siga en la mesa después de cenar.", url: "https://www.amazon.com.mx/s?k=juego+de+mesa+familiar" },
-  { tag: "Para el frío", name: "Bufanda tejida suave", price: "$279", desc: "Calientita, bonita y útil todo el invierno.", url: "https://www.amazon.com.mx/s?k=bufanda+tejida+regalo" },
-  { tag: "Para cocinar", name: "Kit de chocolate caliente", price: "$259", desc: "Taza, chocolate y bombones: el combo perfecto.", url: "https://www.amazon.com.mx/s?k=kit+chocolate+caliente+regalo" },
+// Tu tag de Amazon Afiliados (lo ves como tag=XXXX-20 en tus enlaces).
+// Pídele a Carlos su tag y ponlo aquí: sin tag, los enlaces funcionan
+// pero no generan comisión.
+const AFFILIATE_TAG = "";
+
+const TASTES = [
+  { icon: "🎧", label: "Tecnología" },
+  { icon: "🍳", label: "Cocina" },
+  { icon: "📚", label: "Libros" },
+  { icon: "⚽", label: "Deportes" },
+  { icon: "💄", label: "Belleza" },
+  { icon: "🎲", label: "Juegos" },
+  { icon: "🎵", label: "Música" },
+  { icon: "🏠", label: "Hogar" },
+  { icon: "🐾", label: "Mascotas" },
+  { icon: "✈️", label: "Viajes" },
+  { icon: "🎨", label: "Arte" },
+  { icon: "💪", label: "Fitness" },
+];
+
+// Catálogo de la tienda: foto, precio, descripción y gustos que cubre.
+// La imagen es ilustrativa; el botón lleva a Amazon con tu tag de afiliado.
+const PRODUCTS = [
+  { id: "taza", name: "Taza navideña de cerámica", price: "$199", desc: "Taza grande con diseño festivo, ideal con chocolate caliente.", img: "https://images.unsplash.com/photo-1514228742587-6b1558fcca3d?w=400&q=80", tags: ["Cocina", "Hogar"], query: "taza navideña cerámica" },
+  { id: "audifonos", name: "Audífonos inalámbricos", price: "$899", desc: "Sonido claro, batería para todo el día y estuche de carga.", img: "https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=400&q=80", tags: ["Tecnología", "Música"], query: "audífonos inalámbricos bluetooth" },
+  { id: "reloj", name: "Reloj clásico de pulsera", price: "$1,299", desc: "Elegante y para todos los días, con correa de piel.", img: "https://images.unsplash.com/photo-1523275335684-37898b6baf30?w=400&q=80", tags: ["Tecnología", "Viajes"], query: "reloj clásico hombre mujer" },
+  { id: "libro", name: "Libro sorpresa de temporada", price: "$299", desc: "Una novela ligera para leer junto al árbol.", img: "https://images.unsplash.com/photo-1512820790803-83ca734da794?w=400&q=80", tags: ["Libros"], query: "libros novela regalo" },
+  { id: "tenis", name: "Tenis deportivos rojos", price: "$1,499", desc: "Cómodos para correr o para el día a día, color que destaca.", img: "https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=400&q=80", tags: ["Deportes", "Fitness"], query: "tenis deportivos rojos" },
+  { id: "mochila", name: "Mochila urbana resistente", price: "$749", desc: "Con compartimento para laptop y bolsillos secretos.", img: "https://images.unsplash.com/photo-1553062407-98eeb64c6a62?w=400&q=80", tags: ["Viajes", "Deportes"], query: "mochila urbana laptop" },
+  { id: "camara", name: "Cámara instantánea", price: "$2,199", desc: "Fotos al instante para pegar en el refri y recordar el día.", img: "https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=400&q=80", tags: ["Tecnología", "Viajes", "Arte"], query: "cámara instantánea fotos" },
+  { id: "perfume", name: "Perfume fresco unisex", price: "$649", desc: "Aroma suave para todos los días, frasco elegante.", img: "https://images.unsplash.com/photo-1541643600914-78b084683601?w=400&q=80", tags: ["Belleza"], query: "perfume unisex regalo" },
+  { id: "lentes", name: "Lentes de sol clásicos", price: "$499", desc: "Protección UV con estilo que combina con todo.", img: "https://images.unsplash.com/photo-1572635196237-14b3f281503f?w=400&q=80", tags: ["Viajes", "Fitness"], query: "lentes de sol clásicos" },
+  { id: "cocina", name: "Kit de cocina para principiantes", price: "$599", desc: "Utensilios esenciales para estrenar la cocina.", img: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?w=400&q=80", tags: ["Cocina", "Hogar"], query: "kit utensilios cocina regalo" },
+  { id: "planta", name: "Planta de interior en maceta", price: "$249", desc: "Fácil de cuidar, alegra cualquier rincón de la casa.", img: "https://images.unsplash.com/photo-1485955900006-10f4d324d411?w=400&q=80", tags: ["Hogar"], query: "planta interior maceta regalo" },
+  { id: "smartwatch", name: "Reloj inteligente deportivo", price: "$1,899", desc: "Mide pasos, sueño y ritmo cardiaco, con notificaciones.", img: "https://images.unsplash.com/photo-1546868871-7041f2a55e12?w=400&q=80", tags: ["Tecnología", "Deportes", "Fitness"], query: "reloj inteligente smartwatch" },
 ];
 
 let group = null;      // estado público del grupo
@@ -48,7 +76,43 @@ function fallbackCopy(text, done) {
   ta.remove();
 }
 
-// --- Navegación entre pantallas ---
+// --- Copos de nieve: caen por toda la pantalla, cada uno con su propio
+// tamaño, posición, velocidad y balanceo aleatorios. ---
+function makeSnow() {
+  const container = $("snowfall");
+  if (!container) return;
+  const shapes = ["❄", "❅", "❆", "•"];
+  for (let i = 0; i < 55; i++) {
+    const f = document.createElement("span");
+    f.className = "snowflake";
+    f.textContent = shapes[Math.floor(Math.random() * shapes.length)];
+    const size = 8 + Math.random() * 14;
+    const fall = 9 + Math.random() * 14;
+    const sway = 2 + Math.random() * 3;
+    f.style.left = (Math.random() * 100).toFixed(2) + "vw";
+    f.style.fontSize = size.toFixed(0) + "px";
+    f.style.opacity = (0.35 + Math.random() * 0.6).toFixed(2);
+    f.style.animationDuration = fall.toFixed(1) + "s, " + sway.toFixed(1) + "s";
+    // Empiezan a mitad de caída para que la pantalla se vea llena desde el inicio.
+    f.style.animationDelay = (-Math.random() * fall).toFixed(1) + "s, 0s";
+    container.appendChild(f);
+  }
+}
+
+// --- Etiquetas de gustos ---
+function buildTagPicker(id) {
+  const el = $(id);
+  if (!el) return;
+  el.innerHTML = TASTES.map((t) => `<button type="button" class="tag-chip" data-tag="${t.label}">${t.icon} ${t.label}</button>`).join("");
+  el.querySelectorAll(".tag-chip").forEach((b) => b.addEventListener("click", () => b.classList.toggle("on")));
+}
+function selectedTags(id) {
+  return [...document.querySelectorAll(`#${id} .tag-chip.on`)].map((c) => c.dataset.tag);
+}
+function tasteIcon(label) {
+  const t = TASTES.find((x) => x.label === label);
+  return t ? t.icon + " " + t.label : label;
+}
 const ORDER = ["screen-welcome", "screen-setup", "screen-group", "screen-wishes", "screen-draw"];
 function show(id, back = false) {
   document.querySelectorAll(".screen").forEach((s) => s.classList.remove("active", "slide-back"));
@@ -92,6 +156,7 @@ $("btn-create").addEventListener("click", async () => {
       budget: $("g-budget").value,
       type: $("g-type").value,
       wishlistEnabled: $("g-wishlist").checked,
+      organizerTags: selectedTags("tags-create"),
     }});
     group = data.group;
     me = { participantId: data.me.id, personalCode: data.me.personalCode, codeName: data.me.codeName, organizerToken: data.organizerToken };
@@ -110,7 +175,7 @@ $("btn-join").addEventListener("click", async () => {
   const name = $("j-name").value.trim();
   if (!code || !name) return toast("Escribe el código del grupo y tu nombre");
   try {
-    const data = await api("join", { method: "POST", body: { code, name } });
+    const data = await api("join", { method: "POST", body: { code, name, tags: selectedTags("tags-join") } });
     group = data.group;
     me = { participantId: data.me.id, personalCode: data.me.personalCode, codeName: data.me.codeName };
     saveMe(group.code, me);
@@ -156,7 +221,7 @@ function renderGroup() {
     ? "<p> Aún no hay participantes. ¡Comparte el código!</p>"
     : group.participants.map((p, i) => `
       <div class="person"><div class="avatar">${avatars[i % avatars.length]}</div>
-      <div><b>${p.codeName}</b><span>${p.wishlistCount > 0 ? `🎁 ${p.wishlistCount} deseo(s) en su lista` : "Sin deseos todavía"}</span></div></div>`).join("");
+      <div><b>${p.codeName}</b><span>${p.wishlistCount > 0 ? `🎁 ${p.wishlistCount} deseo(s) en su lista` : "Sin deseos todavía"}</span>${(p.tags || []).length ? `<br>${p.tags.map((t) => `<span class="chip gold">${tasteIcon(t)}</span>`).join("")}` : ""}</div></div>`).join("");
   const isOrg = !!(stored && stored.organizerToken);
   $("organizer-card").classList.toggle("hidden", !isOrg);
   if (isOrg) $("org-wishlist").checked = group.wishlistEnabled;
@@ -261,6 +326,14 @@ $("btn-reveal").addEventListener("click", async () => {
         ? "<p class='small center'>Esta persona no anotó deseos. ¡Sorpréndela con algo bonito!</p>"
         : "<h3 style='margin-top:14px'>🎁 Su lista de deseos</h3>" + w.map((x) => `<div class="wish"><div>🎁</div><div><b>${escapeHtml(x.text)}</b>${x.link ? `<br><a href="${escapeHtml(x.link)}" target="_blank" rel="noopener">Ver enlace ↗</a>` : ""}</div>${x.price ? `<span class="price">${escapeHtml(x.price)}</span>` : ""}</div>`).join(""))
       : "<p class='small center'>La lista de deseos está desactivada en este grupo.</p>";
+    const ri = $("reveal-ideas");
+    const rtags = data.recipient.tags || [];
+    if (rtags.length) {
+      ri.innerHTML = `<h3 style="margin-top:16px">💡 Ideas según sus gustos: ${rtags.map(tasteIcon).join(" · ")}</h3><div class="product-grid" id="reveal-grid"></div>`;
+      renderIdeas($("reveal-grid"), rtags);
+    } else {
+      ri.innerHTML = "";
+    }
     $("flip").classList.remove("flipped");
     openSheet("sheet-reveal");
   } catch (e) { toast(e.message); }
@@ -268,13 +341,32 @@ $("btn-reveal").addEventListener("click", async () => {
 $("flip").addEventListener("click", () => $("flip").classList.toggle("flipped"));
 $("btn-ideas-from-reveal").addEventListener("click", () => { closeSheets(); renderIdeas($("ideas-full")); setTimeout(() => openSheet("sheet-ideas"), 150); });
 
-// --- Ideas de regalo ---
-function renderIdeas(el) {
+// --- Tienda de ideas: miniatura, precio, descripción e imagen ---
+function amazonUrl(query) {
+  const base = "https://www.amazon.com.mx/s?k=" + encodeURIComponent(query);
+  return AFFILIATE_TAG ? base + "&tag=" + encodeURIComponent(AFFILIATE_TAG) : base;
+}
+function productCard(p, match) {
+  return `<div class="product-card">
+    <img src="${p.img}" alt="${escapeHtml(p.name)}" loading="lazy" onerror="this.onerror=null;this.src='https://picsum.photos/seed/${p.id}/400/300'">
+    <div class="p-body">
+      ${match ? `<span class="p-match">✦ Para sus gustos</span>` : ""}
+      <h4>${escapeHtml(p.name)}</h4>
+      <div class="p-price">${p.price}</div>
+      <p>${escapeHtml(p.desc)}</p>
+      <a href="${amazonUrl(p.query)}" target="_blank" rel="noopener sponsored">Comprar en Amazon ↗</a>
+    </div></div>`;
+}
+function renderIdeas(el, filterTags) {
   if (!el) return;
-  el.innerHTML = IDEAS.map((i) => `
-    <div class="idea"><span class="tag">${i.tag} · ${i.price} aprox.</span>
-    <h3 style="margin-top:4px">${i.name}</h3><p>${i.desc}</p>
-    <a href="${i.url}" target="_blank" rel="noopener sponsored">Ver en Amazon ↗</a></div>`).join("");
+  let list = PRODUCTS.map((p) => ({ ...p, _match: false }));
+  if (filterTags && filterTags.length) {
+    const match = list.filter((p) => p.tags.some((t) => filterTags.includes(t)));
+    const rest = list.filter((p) => !p.tags.some((t) => filterTags.includes(t)));
+    match.forEach((p) => { p._match = true; });
+    list = [...match, ...rest];
+  }
+  el.innerHTML = list.map((p) => productCard(p, p._match)).join("");
 }
 function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
@@ -282,6 +374,9 @@ function escapeHtml(s) {
 
 // --- Entrada con código en la URL (?g=XXXXXX) ---
 (function init() {
+  makeSnow();
+  buildTagPicker("tags-create");
+  buildTagPicker("tags-join");
   renderIdeas($("ideas"));
   const params = new URLSearchParams(location.search);
   const code = (params.get("g") || "").toUpperCase();
