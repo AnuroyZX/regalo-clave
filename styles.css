@@ -38,6 +38,15 @@ body {
 .logo { font-size: 22px; font-weight: 800; letter-spacing: .3px; }
 .logo span { color: var(--gold-light); }
 .topbar button { background: rgba(255,255,255,.14); color: #fff; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; padding: 7px 14px; font-size: 13px; cursor: pointer; }
+#btn-account { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.topbar > div { display: flex; gap: 8px; }
+
+/* Mis grupos en la cuenta */
+.mygroup { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid #f0e7d6; }
+.mygroup:last-child { border-bottom: none; }
+.mygroup b { color: var(--pine-dark); display: block; font-size: 15px; }
+.mygroup span { font-size: 13px; color: var(--muted); }
+.mygroup button { background: var(--pine); color: #fff; border: none; border-radius: 9px; padding: 8px 14px; font-weight: 800; cursor: pointer; flex-shrink: 0; }
 
 .progress { display: flex; gap: 6px; margin: 4px 4px 16px; }
 .progress i { flex: 1; height: 6px; border-radius: 99px; background: rgba(255,255,255,.25); }

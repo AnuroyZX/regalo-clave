@@ -12,7 +12,10 @@
 <div class="app">
   <div class="topbar">
     <div class="logo">🎄 Regalo <span>Clave</span></div>
-    <button id="btn-how" type="button">¿Cómo funciona?</button>
+    <div>
+      <button id="btn-account" type="button">👤 Entrar</button>
+      <button id="btn-how" type="button">¿Cómo funciona?</button>
+    </div>
   </div>
   <div class="progress" id="progress"><i class="on"></i><i></i><i></i><i></i></div>
 
@@ -25,6 +28,7 @@
       <button class="btn" id="btn-go-create" type="button">🎄 Crear mi grupo</button>
       <button class="btn green" id="btn-go-join" type="button">🔑 Unirme con un código</button>
       <button class="btn ghost" id="btn-go-demo" type="button">Ver ideas de regalo</button>
+      <p class="small center" style="margin-top:14px">💡 Con una cuenta con correo vuelves a tus grupos desde cualquier teléfono. Sin cuenta, solo desde este navegador.</p>
     </div>
     <div class="card green">
       <h2>¿Por qué con nombres clave?</h2>
@@ -75,7 +79,7 @@
         <label>¿Qué te gusta? Toca tus gustos</label>
         <div class="tag-picker" id="tags-join"></div>
         <button class="btn green" id="btn-join" type="button">Unirme y recibir mi nombre clave</button>
-        <p class="small" style="margin-top:12px">Al unirte recibirás tu nombre clave y un código personal secreto. Guárdalo: lo necesitarás para ver tu lista de deseos y revelar a quién te toca regalar.</p>
+        <p class="small" style="margin-top:12px">Al unirte recibirás tu nombre clave. Tu sesión queda guardada en este navegador; con una cuenta con correo puedes volver a entrar desde cualquier teléfono.</p>
       </div>
       <button class="btn ghost" id="btn-back-welcome" type="button">← Atrás</button>
     </div>
@@ -91,7 +95,6 @@
       <div id="my-codename-wrap">
         <p class="small center" style="margin-top:14px">Tu nombre clave es</p>
         <div class="codename" id="my-codename">···</div>
-        <p class="small center">Tu código personal secreto: <b id="my-personal">····</b> <span style="color:var(--red)">· no lo compartas</span></p>
       </div>
     </div>
     <div class="card green">
@@ -166,7 +169,7 @@
     <h2>¿Cómo funciona?</h2>
     <ol class="steps">
       <li><div><b>Crea tu grupo</b><p>Ponle nombre, fecha y presupuesto. Tú eres el organizador.</p></div></li>
-      <li><div><b>Comparte el código</b><p>Tus amigos entran con el código y cada uno recibe un nombre clave secreto y un código personal.</p></div></li>
+      <li><div><b>Comparte el código</b><p>Tus amigos entran con el código y cada uno recibe un nombre clave secreto.</p></div></li>
       <li><div><b>Armen su lista de deseos</b><p>Si está activada, cada quien anota qué le gustaría recibir.</p></div></li>
       <li><div><b>Sorteo secreto</b><p>El organizador hace el sorteo y cada quien revela en privado a qué nombre clave le regala.</p></div></li>
     </ol>
@@ -195,8 +198,52 @@
     <h2 class="center">🎉 ¡Ya estás dentro!</h2>
     <p class="center">Tu nombre clave secreto es</p>
     <div class="codename" id="sheet-codename-value">···</div>
-    <p class="center">Tu código personal secreto es <b id="sheet-personal-value" style="font-size:20px;">····</b><br><span class="small">Guárdalo en un lugar seguro. Sin él no podrás revelar a quién te toca regalar.</span></p>
+    <p class="center small" id="sheet-codename-note">Tu sesión quedó guardada en este navegador.</p>
+    <button class="btn gold" id="btn-sheet-account" type="button">👤 Crear mi cuenta gratis</button>
     <button class="btn" data-close type="button">Lo tengo, ¡vamos!</button>
+  </div>
+</div>
+
+<!-- Pantalla emergente: cuenta -->
+<div class="sheet" id="sheet-account">
+  <div class="sheet-box">
+    <div class="sheet-grip"></div>
+    <button class="sheet-close" data-close type="button">✕</button>
+    <h2>👤 Mi cuenta</h2>
+    <div id="account-out">
+      <div id="form-login">
+        <label for="a-email">Correo electrónico</label>
+        <input id="a-email" type="email" maxlength="80" placeholder="tucorreo@ejemplo.com" autocomplete="email">
+        <label for="a-password">Contraseña</label>
+        <input id="a-password" type="password" maxlength="80" placeholder="Tu contraseña" autocomplete="current-password">
+        <button class="btn" id="btn-login" type="button">Entrar</button>
+        <p class="small center" style="margin-top:12px">¿No tienes cuenta? <button class="linklike" id="btn-show-register" type="button">Crear una gratis</button></p>
+      </div>
+      <div id="form-register" class="hidden">
+        <label for="a-name">Tu nombre</label>
+        <input id="a-name" maxlength="40" placeholder="Ej. Carlos">
+        <label for="a-email-reg">Correo electrónico</label>
+        <input id="a-email-reg" type="email" maxlength="80" placeholder="tucorreo@ejemplo.com" autocomplete="email">
+        <label for="a-password-reg">Contraseña (mínimo 6 caracteres)</label>
+        <input id="a-password-reg" type="password" maxlength="80" placeholder="Elige una contraseña" autocomplete="new-password">
+        <button class="btn green" id="btn-register" type="button">Crear mi cuenta</button>
+        <p class="small center" style="margin-top:12px">¿Ya tienes cuenta? <button class="linklike" id="btn-show-login" type="button">Entrar</button></p>
+      </div>
+      <p class="small center" style="margin-top:16px">Puedes seguir sin cuenta: todo funciona, pero si cambias de teléfono o borras los datos del navegador no podrás volver a tus grupos.</p>
+    </div>
+    <div id="account-in" class="hidden">
+      <p class="small">Sesión iniciada como</p>
+      <p style="font-weight:800; color:var(--pine-dark); margin-bottom:10px" id="account-email"></p>
+      <h3>🎄 Mis grupos</h3>
+      <div id="account-groups"></div>
+      <h3 style="margin-top:18px">🔑 Cambiar contraseña</h3>
+      <label for="a-current">Contraseña actual</label>
+      <input id="a-current" type="password" maxlength="80" autocomplete="current-password">
+      <label for="a-new">Contraseña nueva</label>
+      <input id="a-new" type="password" maxlength="80" autocomplete="new-password">
+      <button class="btn gold" id="btn-change-password" type="button">Cambiar contraseña</button>
+      <button class="btn ghost" id="btn-logout" type="button">Cerrar sesión</button>
+    </div>
   </div>
 </div>
 

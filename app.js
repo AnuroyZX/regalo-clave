@@ -36,9 +36,41 @@ const PRODUCTS = [
 ];
 
 let group = null;      // estado público del grupo
-let me = null;         // { participantId, personalCode, codeName, organizerToken? }
+let me = null;         // { participantId, codeName, organizerToken?, personalCode? (legado) }
+let session = null;    // { token, email, name, guest } — tu sesión persistente
 let currentScreen = "screen-welcome";
 let pollTimer = null;
+
+const SESSION_KEY = "rc_session_v1";
+function saveSessionToken(t) { try { localStorage.setItem(SESSION_KEY, t); } catch {} }
+function loadSessionToken() { try { return localStorage.getItem(SESSION_KEY) || ""; } catch { return ""; } }
+function sessionToken() { return session?.token || ""; }
+
+// Sesión persistente: si ya tienes sesión guardada, se valida; si no,
+// se crea una de invitado. Con cuenta (correo) la sesión te sigue a
+// cualquier dispositivo; sin cuenta solo vale en este navegador.
+async function ensureSession() {
+  const stored = loadSessionToken();
+  if (stored) {
+    try {
+      const data = await api("session", { query: { token: stored } });
+      session = { token: stored, email: data.email || "", name: data.name || "", guest: !data.email };
+      renderAccount();
+      return;
+    } catch { /* sesión inválida o expirada: se crea una de invitado */ }
+  }
+  try {
+    const data = await api("guest", { method: "POST", body: {} });
+    session = { token: data.token, email: "", name: "", guest: true };
+    saveSessionToken(data.token);
+  } catch { session = null; }
+  renderAccount();
+}
+function adoptSessionToken(t) {
+  if (!t || t === sessionToken()) return;
+  saveSessionToken(t);
+  session = { token: t, email: session?.email || "", name: session?.name || "", guest: !session?.email };
+}
 
 function getMeStore() { try { return JSON.parse(localStorage.getItem(ME_KEY) || "{}"); } catch { return {}; } }
 function saveMe(code, data) { const s = getMeStore(); s[code] = { ...(s[code] || {}), ...data }; localStorage.setItem(ME_KEY, JSON.stringify(s)); }
@@ -152,12 +184,14 @@ $("btn-create").addEventListener("click", async () => {
       type: $("g-type").value,
       wishlistEnabled: $("g-wishlist").checked,
       organizerTags: selectedTags("tags-create"),
+      token: sessionToken(),
     }});
     group = data.group;
-    me = { participantId: data.me.id, personalCode: data.me.personalCode, codeName: data.me.codeName, organizerToken: data.organizerToken };
+    me = { participantId: data.me.id, codeName: data.me.codeName, organizerToken: data.organizerToken };
+    adoptSessionToken(data.sessionToken);
     saveMe(group.code, me);
     $("sheet-codename-value").textContent = me.codeName;
-    $("sheet-personal-value").textContent = me.personalCode;
+    setCodenameNote();
     renderGroup();
     show("screen-group");
     openSheet("sheet-codename");
@@ -170,17 +204,108 @@ $("btn-join").addEventListener("click", async () => {
   const name = $("j-name").value.trim();
   if (!code || !name) return toast("Escribe el código del grupo y tu nombre");
   try {
-    const data = await api("join", { method: "POST", body: { code, name, tags: selectedTags("tags-join") } });
+    const data = await api("join", { method: "POST", body: { code, name, tags: selectedTags("tags-join"), token: sessionToken() } });
     group = data.group;
-    me = { participantId: data.me.id, personalCode: data.me.personalCode, codeName: data.me.codeName };
+    me = { participantId: data.me.id, codeName: data.me.codeName };
+    adoptSessionToken(data.sessionToken);
     saveMe(group.code, me);
     $("sheet-codename-value").textContent = me.codeName;
-    $("sheet-personal-value").textContent = me.personalCode;
+    setCodenameNote();
     renderGroup();
     show("screen-group");
     openSheet("sheet-codename");
   } catch (e) { toast(e.message); }
 });
+
+function setCodenameNote() {
+  const el = $("sheet-codename-note");
+  if (!el) return;
+  el.textContent = session?.email
+    ? "Tu cuenta es " + session.email + ": con ella vuelves a entrar a tus grupos desde cualquier teléfono."
+    : "Tu sesión quedó guardada en este navegador. Crea tu cuenta con tu correo para volver a entrar desde cualquier teléfono.";
+}
+
+// --- Cuenta con correo ---
+function renderAccount() {
+  const btn = $("btn-account");
+  if (!btn) return;
+  btn.textContent = session?.email ? "👤 " + session.email.split("@")[0] : "👤 Entrar";
+  $("account-out").classList.toggle("hidden", !!session?.email);
+  $("account-in").classList.toggle("hidden", !session?.email);
+  if (session?.email) {
+    $("account-email").textContent = session.email;
+    loadMyGroups();
+  }
+}
+async function loadMyGroups() {
+  const el = $("account-groups");
+  if (!el || !session?.email) return;
+  el.innerHTML = "<p class='small'>Cargando tus grupos...</p>";
+  try {
+    const data = await api("mygroups", { query: { token: sessionToken() } });
+    el.innerHTML = data.groups.length === 0
+      ? "<p class='small'>Aún no tienes grupos con esta cuenta.</p>"
+      : data.groups.map((g) => `<div class="mygroup"><div><b>${escapeHtml(g.name)}</b><span>🎅 ${escapeHtml(g.codeName)} · ${g.drawn ? "sorteo hecho" : "esperando sorteo"}</span></div><button type="button" data-code="${g.code}" data-pid="${g.participantId}" data-codename="${escapeHtml(g.codeName)}">Entrar</button></div>`).join("");
+    el.querySelectorAll("button[data-code]").forEach((b) => b.addEventListener("click", () => enterGroup(b.dataset.code, b.dataset.pid, b.dataset.codename)));
+  } catch { el.innerHTML = "<p class='small'>No se pudieron cargar tus grupos.</p>"; }
+}
+async function enterGroup(code, participantId, codeName) {
+  try {
+    const data = await api("group", { query: { code } });
+    group = data.group;
+    me = { participantId, codeName };
+    saveMe(code, me);
+    closeSheets();
+    renderGroup();
+    show("screen-group");
+  } catch (e) { toast(e.message); }
+}
+$("btn-account").addEventListener("click", () => { renderAccount(); openSheet("sheet-account"); });
+$("btn-show-register").addEventListener("click", () => { $("form-login").classList.add("hidden"); $("form-register").classList.remove("hidden"); });
+$("btn-show-login").addEventListener("click", () => { $("form-register").classList.add("hidden"); $("form-login").classList.remove("hidden"); });
+$("btn-login").addEventListener("click", async () => {
+  const email = $("a-email").value.trim();
+  const password = $("a-password").value;
+  if (!email || !password) return toast("Escribe tu correo y contraseña");
+  try {
+    const data = await api("login", { method: "POST", body: { email, password } });
+    session = { token: data.token, email: data.email, name: data.name || "", guest: false };
+    saveSessionToken(data.token);
+    toast("¡Bienvenido de nuevo! 👋");
+    renderAccount();
+  } catch (e) { toast(e.message); }
+});
+$("btn-register").addEventListener("click", async () => {
+  const name = $("a-name").value.trim();
+  const email = $("a-email-reg").value.trim();
+  const password = $("a-password-reg").value;
+  if (!email || !password) return toast("Escribe tu correo y una contraseña");
+  try {
+    const data = await api("register", { method: "POST", body: { email, password, name } });
+    session = { token: data.token, email: data.email, name: data.name || "", guest: false };
+    saveSessionToken(data.token);
+    toast("Cuenta creada 🎄 Ya puedes volver desde cualquier teléfono");
+    renderAccount();
+  } catch (e) { toast(e.message); }
+});
+$("btn-logout").addEventListener("click", async () => {
+  try { await api("logout", { method: "POST", body: { token: sessionToken() } }); } catch {}
+  session = null;
+  try { localStorage.removeItem(SESSION_KEY); } catch {}
+  await ensureSession();
+  toast("Sesión cerrada");
+});
+$("btn-change-password").addEventListener("click", async () => {
+  const current = $("a-current").value;
+  const next = $("a-new").value;
+  if (!current || !next) return toast("Escribe tu contraseña actual y la nueva");
+  try {
+    await api("change-password", { method: "POST", body: { token: sessionToken(), currentPassword: current, newPassword: next } });
+    $("a-current").value = ""; $("a-new").value = "";
+    toast("Contraseña actualizada 🔑");
+  } catch (e) { toast(e.message); }
+});
+$("btn-sheet-account").addEventListener("click", () => { closeSheets(); renderAccount(); setTimeout(() => openSheet("sheet-account"), 150); });
 
 // --- Grupo ---
 async function refreshGroup() {
@@ -206,7 +331,6 @@ function renderGroup() {
   if (stored) {
     me = stored;
     $("my-codename").textContent = "🎅 " + stored.codeName;
-    $("my-personal").textContent = stored.personalCode;
     $("my-codename-wrap").classList.remove("hidden");
   } else {
     $("my-codename-wrap").classList.add("hidden");
@@ -240,7 +364,7 @@ $("btn-next-wishes").addEventListener("click", () => { renderWishes(); show("scr
 $("org-wishlist").addEventListener("change", async (e) => {
   if (!group || !me?.organizerToken) return;
   try {
-    const data = await api("settings", { method: "POST", body: { code: group.code, organizerToken: me.organizerToken, wishlistEnabled: e.target.checked } });
+    const data = await api("settings", { method: "POST", body: { code: group.code, token: sessionToken(), organizerToken: me.organizerToken, wishlistEnabled: e.target.checked } });
     group = data.group; toast(e.target.checked ? "Lista de deseos activada 🎁" : "Lista de deseos desactivada");
   } catch (err) { toast(err.message); e.target.checked = !e.target.checked; }
 });
@@ -248,7 +372,7 @@ $("btn-draw").addEventListener("click", async () => {
   if (!group || !me?.organizerToken) return;
   if (!confirm("¿Hacer el sorteo secreto ahora? Ya nadie podrá unirse después.")) return;
   try {
-    const data = await api("draw", { method: "POST", body: { code: group.code, organizerToken: me.organizerToken } });
+    const data = await api("draw", { method: "POST", body: { code: group.code, token: sessionToken(), organizerToken: me.organizerToken } });
     group = data.group; renderGroup(); toast("¡Sorteo hecho! 🎲 Cada quien ya puede revelar a quién le toca");
     renderDraw(); show("screen-draw");
   } catch (e) { toast(e.message); }
@@ -262,7 +386,7 @@ async function renderWishes() {
   renderIdeas($("ideas"));
   if (group.wishlistEnabled && me) {
     try {
-      const data = await api("mywishes", { method: "POST", body: { code: group.code, participantId: me.participantId, personalCode: me.personalCode } });
+      const data = await api("mywishes", { method: "POST", body: { code: group.code, participantId: me.participantId, token: sessionToken(), personalCode: me.personalCode } });
       myWishesCache = data.wishlist || [];
       renderMyWishes(myWishesCache);
     } catch { renderMyWishes(myWishesCache); }
@@ -280,7 +404,7 @@ $("btn-add-wish").addEventListener("click", async () => {
   if (!group || !me) return toast("Primero únete a un grupo");
   try {
     const data = await api("wish", { method: "POST", body: {
-      code: group.code, participantId: me.participantId, personalCode: me.personalCode,
+      code: group.code, participantId: me.participantId, token: sessionToken(), personalCode: me.personalCode,
       text, price: $("w-price").value.trim(), link: $("w-link").value.trim(),
     }});
     myWishesCache = data.wishlist;
@@ -312,7 +436,7 @@ $("btn-back-wishes").addEventListener("click", () => { renderWishes(); show("scr
 $("btn-reveal").addEventListener("click", async () => {
   if (!group || !me) return toast("Primero únete a un grupo");
   try {
-    const data = await api("reveal", { method: "POST", body: { code: group.code, participantId: me.participantId, personalCode: me.personalCode } });
+    const data = await api("reveal", { method: "POST", body: { code: group.code, participantId: me.participantId, token: sessionToken(), personalCode: me.personalCode } });
     $("reveal-who").textContent = "🎅 " + data.recipient.codeName;
     $("reveal-budget").textContent = data.budget ? `Presupuesto sugerido: $${data.budget} MXN` : "";
     const w = data.recipient.wishlist || [];
@@ -347,7 +471,7 @@ document.addEventListener("click", async (e) => {
   btn.disabled = true;
   try {
     const data = await api("wish", { method: "POST", body: {
-      code: group.code, participantId: me.participantId, personalCode: me.personalCode,
+      code: group.code, participantId: me.participantId, token: sessionToken(), personalCode: me.personalCode,
       text: p.name, price: p.price, link: "",
     }});
     myWishesCache = data.wishlist;
@@ -386,11 +510,12 @@ function escapeHtml(s) {
 }
 
 // --- Entrada con código en la URL (?g=XXXXXX) ---
-(function init() {
+(async function init() {
   makeSnow();
   buildTagPicker("tags-create");
   buildTagPicker("tags-join");
   renderIdeas($("ideas"));
+  await ensureSession();
   const params = new URLSearchParams(location.search);
   const code = (params.get("g") || "").toUpperCase();
   if (code) {
