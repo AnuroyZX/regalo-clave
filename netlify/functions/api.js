@@ -109,6 +109,63 @@ async function resolveSession(sessions, token) {
 function identityOf(session) {
   return session.email ? `email:${session.email.toLowerCase()}` : `guest:${session.guestId}`;
 }
+
+// Cierra todas las sesiones de una cuenta (al cambiar la contraseña).
+async function revokeSessions(sessions, email) {
+  try {
+    const listed = await sessions.list();
+    for (const item of listed.blobs || []) {
+      const s = await getJSON(sessions, item.key);
+      if (s?.email === email) await sessions.delete(item.key).catch(() => {});
+    }
+  } catch {}
+}
+
+// Límite de intentos (ventana fija en Blobs): login, registro y reset.
+async function limitCheck(limits, key, max, windowMs) {
+  const now = Date.now();
+  const rec = await getJSON(limits, key);
+  if (!rec || now - rec.start > windowMs) return { allowed: true, count: 0 };
+  return { allowed: rec.count < max, count: rec.count };
+}
+async function limitHit(limits, key, windowMs) {
+  const now = Date.now();
+  let rec = await getJSON(limits, key);
+  if (!rec || now - rec.start > windowMs) rec = { count: 0, start: now };
+  rec.count++;
+  await limits.setJSON(key, rec);
+  return rec.count;
+}
+async function limitReset(limits, key) {
+  await limits.delete(key).catch(() => {});
+}
+
+// Solo enlaces http(s): nada de javascript:, data: ni otros esquemas.
+function isSafeLink(link) {
+  return /^https?:\/\/\S+$/i.test(String(link || "").trim());
+}
+
+// Escritura guardada de un grupo: re-lee antes de escribir y reintenta si
+// otro participante modificó el grupo entre tanto (ventana de carrera mínima).
+async function withGroup(groups, code, fn) {
+  const key = String(code || "").trim().toUpperCase();
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const group = await getJSON(groups, key);
+    if (!group) return { group: null };
+    const readRev = group.rev || 0;
+    const result = fn(group);
+    if (result && result.abort) return { group, result };
+    const fresh = await getJSON(groups, key);
+    if (fresh && (fresh.rev || 0) !== readRev) {
+      await new Promise((r) => setTimeout(r, 10 + Math.random() * 40));
+      continue;
+    }
+    group.rev = readRev + 1;
+    await groups.setJSON(key, group);
+    return { group, result };
+  }
+  return { conflict: true };
+}
 // Devuelve la identidad de la sesión del cliente; si no hay sesión válida,
 // crea una de invitado para que el flujo no se rompa.
 async function ensureIdentity(body, sessions) {
@@ -156,7 +213,7 @@ function isOrganizer(group, identity, organizerToken) {
   if (identity && group.organizer && group.organizer === identity) return true;
   return false;
 }
-function publicGroup(group) {
+function publicGroup(group, identity) {
   return {
     code: group.code,
     name: group.name,
@@ -165,6 +222,7 @@ function publicGroup(group) {
     type: group.type,
     wishlistEnabled: group.wishlistEnabled,
     drawn: group.drawn,
+    isOrganizer: identity ? group.organizer === identity : false,
     participants: group.participants.map((p) => ({
       id: p.id,
       codeName: p.codeName,
@@ -203,6 +261,7 @@ export default async (req) => {
     const groups = store("regalo-clave-groups");
     const users = store("regalo-clave-users");
     const sessions = store("regalo-clave-sessions");
+    const limits = store("regalo-clave-ratelimit");
     const loadGroup = async (code) =>
       await getJSON(groups, String(code || "").trim().toUpperCase());
 
@@ -214,6 +273,9 @@ export default async (req) => {
       const name = String(b.name || "").trim().slice(0, 40);
       if (!/^\S+@\S+\.\S+$/.test(email)) return bad("Escribe un correo válido.");
       if (password.length < 6) return bad("La contraseña necesita al menos 6 caracteres.");
+      const limited = await limitCheck(limits, `register:${email}`, 3, 3600e3);
+      if (!limited.allowed) return bad("Demasiados intentos. Espera una hora.", 429);
+      await limitHit(limits, `register:${email}`, 3600e3);
       const existing = await getJSON(users, email);
       if (existing) return bad("Ese correo ya tiene cuenta. Entra con tu contraseña.", 409);
       await users.setJSON(email, { email, name, hash: hashPassword(password), createdAt: new Date().toISOString() });
@@ -225,8 +287,14 @@ export default async (req) => {
       const b = await req.json();
       const email = String(b.email || "").trim().toLowerCase();
       const password = String(b.password || "");
+      const limited = await limitCheck(limits, `login:${email}`, 5, 15 * 60e3);
+      if (!limited.allowed) return bad("Demasiados intentos fallidos. Espera 15 minutos.", 429);
       const user = await getJSON(users, email);
-      if (!user || !verifyPassword(password, user.hash)) return bad("Correo o contraseña incorrectos.", 401);
+      if (!user || !verifyPassword(password, user.hash)) {
+        await limitHit(limits, `login:${email}`, 15 * 60e3);
+        return bad("Correo o contraseña incorrectos.", 401);
+      }
+      await limitReset(limits, `login:${email}`);
       const s = await createSession(sessions, email);
       return json({ ok: true, token: s.token, email, name: user.name || "" });
     }
@@ -263,6 +331,7 @@ export default async (req) => {
       if (next.length < 6) return bad("La nueva contraseña necesita al menos 6 caracteres.");
       user.hash = hashPassword(next);
       await users.setJSON(s.email, user);
+      await revokeSessions(sessions, s.email);
       return json({ ok: true });
     }
 
@@ -291,16 +360,18 @@ export default async (req) => {
       const email = String(b.email || "").trim().toLowerCase();
       const resets = store("regalo-clave-resets");
       const user = /^\S+@\S+\.\S+$/.test(email) ? await getJSON(users, email) : null;
-      let emailSent = false;
       if (user) {
-        const token = randomBytes(32).toString("hex");
-        await resets.setJSON(token, { email, expiresAt: new Date(Date.now() + 3600e3).toISOString() });
-        const base = (process.env.URL || "https://regalo-clave.netlify.app").replace(/\/$/, "");
-        const sent = await sendResetEmail(email, `${base}/?reset=${token}`);
-        emailSent = sent.ok;
+        const limited = await limitCheck(limits, `reset:${email}`, 3, 3600e3);
+        if (limited.allowed) {
+          await limitHit(limits, `reset:${email}`, 3600e3);
+          const token = randomBytes(32).toString("hex");
+          await resets.setJSON(token, { email, expiresAt: new Date(Date.now() + 3600e3).toISOString() });
+          const base = (process.env.URL || "https://regalo-clave.netlify.app").replace(/\/$/, "");
+          await sendResetEmail(email, `${base}/?reset=${token}`);
+        }
       }
-      // Siempre responde ok para no revelar si el correo tiene cuenta.
-      return json({ ok: true, emailSent });
+      // Siempre responde igual, tenga o no cuenta el correo, para no revelar nada.
+      return json({ ok: true });
     }
 
     if (req.method === "POST" && action === "reset-password") {
@@ -318,13 +389,7 @@ export default async (req) => {
       await users.setJSON(rec.email, user);
       await resets.delete(token).catch(() => {});
       // Cierra las sesiones de esa cuenta: hay que entrar de nuevo.
-      try {
-        const listed = await sessions.list();
-        for (const item of listed.blobs || []) {
-          const s2 = await getJSON(sessions, item.key);
-          if (s2?.email === rec.email) await sessions.delete(item.key).catch(() => {});
-        }
-      } catch {}
+      await revokeSessions(sessions, rec.email);
       return json({ ok: true });
     }
 
@@ -363,11 +428,12 @@ export default async (req) => {
         participants: [],
         assignments: {},
         drawn: false,
+        rev: 0,
         createdAt: new Date().toISOString(),
       };
       const me = addParticipant(group, organizerName, b.organizerTags, identity);
       await groups.setJSON(group.code, group);
-      return json({ ok: true, group: publicGroup(group), me: publicMe(me), organizerToken: group.organizerToken, sessionToken: token });
+      return json({ ok: true, group: publicGroup(group, identity), me: publicMe(me), organizerToken: group.organizerToken, sessionToken: token });
     }
 
     if (req.method === "POST" && action === "join") {
@@ -377,22 +443,28 @@ export default async (req) => {
       if (!group) return bad("No encontré un grupo con ese código.", 404);
       if (group.drawn) return bad("El sorteo ya se hizo, ya no se puede unir nadie.");
       const { identity, token } = await ensureIdentity(b, sessions);
-      // Volver a entrar: si esta sesión/cuenta ya está en el grupo, devuelve
-      // su participante en vez de crear uno duplicado.
-      const existing = group.participants.find((p) => p.owner === identity);
-      if (existing) {
-        return json({ ok: true, group: publicGroup(group), me: publicMe(existing), sessionToken: token, rejoined: true });
-      }
-      const me = addParticipant(group, b.name, b.tags, identity);
-      if (!me) return bad("Ese nombre ya está en el grupo o está vacío.");
-      await groups.setJSON(group.code, group);
-      return json({ ok: true, group: publicGroup(group), me: publicMe(me), sessionToken: token });
+      const done = await withGroup(groups, code, (group) => {
+        if (group.drawn) return { abort: true, error: "El sorteo ya se hizo, ya no se puede unir nadie." };
+        // Volver a entrar: si esta sesión/cuenta ya está en el grupo, devuelve
+        // su participante en vez de crear uno duplicado.
+        const existing = group.participants.find((p) => p.owner === identity);
+        if (existing) return { me: publicMe(existing), rejoined: true };
+        const me = addParticipant(group, b.name, b.tags, identity);
+        if (!me) return { abort: true, error: "Ese nombre ya está en el grupo o está vacío." };
+        return { me: publicMe(me) };
+      });
+      if (done.conflict) return bad("El grupo cambió justo ahora. Inténtalo de nuevo.", 409);
+      if (!done.group) return bad("No encontré un grupo con ese código.", 404);
+      if (done.result?.abort) return bad(done.result.error, 400);
+      return json({ ok: true, group: publicGroup(done.group, identity), me: done.result.me, sessionToken: token, rejoined: !!done.result.rejoined });
     }
 
     if (req.method === "GET" && action === "group") {
       const group = await loadGroup(url.searchParams.get("code") || "");
       if (!group) return bad("No encontré un grupo con ese código.", 404);
-      return json({ ok: true, group: publicGroup(group) });
+      const s = await resolveSession(sessions, url.searchParams.get("session") || "");
+      const identity = s ? identityOf(s) : null;
+      return json({ ok: true, group: publicGroup(group, identity) });
     }
 
     if (req.method === "GET" && action === "organizer") {
@@ -402,27 +474,33 @@ export default async (req) => {
       const s = await resolveSession(sessions, url.searchParams.get("session") || "");
       const identity = s ? identityOf(s) : null;
       if (!isOrganizer(group, identity, url.searchParams.get("token") || "")) return bad("No autorizado.", 403);
-      return json({ ok: true, group: { ...publicGroup(group), names: group.participants.map((p) => ({ id: p.id, name: p.name, codeName: p.codeName })) } });
+      return json({ ok: true, group: { ...publicGroup(group, identity), names: group.participants.map((p) => ({ id: p.id, name: p.name, codeName: p.codeName })) } });
     }
 
     if (req.method === "POST" && action === "wish") {
       const b = await req.json();
-      const group = await loadGroup(b.code);
-      if (!group) return bad("Grupo no encontrado.", 404);
-      if (!group.wishlistEnabled) return bad("La lista de deseos está desactivada en este grupo.");
-      const s = await resolveSession(sessions, b.token);
-      const p = findParticipant(group, b.participantId, s ? identityOf(s) : null, b.personalCode);
-      if (!p) return bad("Sesión no válida. Vuelve a entrar al grupo.", 403);
       const text = String(b.text || "").trim().slice(0, 120);
       if (!text) return bad("Escribe tu deseo.");
-      p.wishlist.push({
-        id: uid(),
-        text,
-        link: String(b.link || "").trim().slice(0, 300),
-        price: String(b.price || "").trim().slice(0, 30),
+      const link = String(b.link || "").trim().slice(0, 300);
+      if (link && !isSafeLink(link)) return bad("El enlace debe empezar por http:// o https://.", 400);
+      const s = await resolveSession(sessions, b.token);
+      const identity = s ? identityOf(s) : null;
+      const done = await withGroup(groups, b.code, (group) => {
+        if (!group.wishlistEnabled) return { abort: true, error: "La lista de deseos está desactivada en este grupo." };
+        const p = findParticipant(group, b.participantId, identity, b.personalCode);
+        if (!p) return { abort: true, error: "Sesión no válida. Vuelve a entrar al grupo.", status: 403 };
+        p.wishlist.push({
+          id: uid(),
+          text,
+          link,
+          price: String(b.price || "").trim().slice(0, 30),
+        });
+        return { wishlist: p.wishlist };
       });
-      await groups.setJSON(group.code, group);
-      return json({ ok: true, group: publicGroup(group), wishlist: p.wishlist });
+      if (done.conflict) return bad("El grupo cambió justo ahora. Inténtalo de nuevo.", 409);
+      if (!done.group) return bad("Grupo no encontrado.", 404);
+      if (done.result?.abort) return bad(done.result.error, done.result.status || 400);
+      return json({ ok: true, group: publicGroup(done.group, identity), wishlist: done.result.wishlist });
     }
 
     if (req.method === "POST" && action === "mywishes") {
@@ -443,11 +521,17 @@ export default async (req) => {
       const s = await resolveSession(sessions, b.token);
       const identity = s ? identityOf(s) : null;
       if (!isOrganizer(group, identity, b.organizerToken)) return bad("No autorizado.", 403);
+      if (group.drawn) return bad("El sorteo ya se hizo.", 400);
       if (group.participants.length < 3) return bad("Se necesitan al menos 3 participantes.");
-      group.assignments = drawAssignments(group.participants.map((p) => p.id));
-      group.drawn = true;
-      await groups.setJSON(group.code, group);
-      return json({ ok: true, group: publicGroup(group) });
+      const done = await withGroup(groups, b.code, (g) => {
+        if (g.drawn) return { abort: true, error: "El sorteo ya se hizo." };
+        g.assignments = drawAssignments(g.participants.map((p) => p.id));
+        g.drawn = true;
+        return {};
+      });
+      if (done.conflict) return bad("El grupo cambió justo ahora. Inténtalo de nuevo.", 409);
+      if (done.result?.abort) return bad(done.result.error, 400);
+      return json({ ok: true, group: publicGroup(done.group, identity) });
     }
 
     if (req.method === "POST" && action === "reveal") {
@@ -482,9 +566,12 @@ export default async (req) => {
       const s = await resolveSession(sessions, b.token);
       const identity = s ? identityOf(s) : null;
       if (!isOrganizer(group, identity, b.organizerToken)) return bad("No autorizado.", 403);
-      if (typeof b.wishlistEnabled === "boolean") group.wishlistEnabled = b.wishlistEnabled;
-      await groups.setJSON(group.code, group);
-      return json({ ok: true, group: publicGroup(group) });
+      const done = await withGroup(groups, b.code, (g) => {
+        if (typeof b.wishlistEnabled === "boolean") g.wishlistEnabled = b.wishlistEnabled;
+        return {};
+      });
+      if (done.conflict) return bad("El grupo cambió justo ahora. Inténtalo de nuevo.", 409);
+      return json({ ok: true, group: publicGroup(done.group, identity) });
     }
 
     return bad("Acción no válida.", 404);

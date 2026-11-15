@@ -254,7 +254,7 @@ async function loadMyGroups() {
 }
 async function enterGroup(code, participantId, codeName) {
   try {
-    const data = await api("group", { query: { code } });
+    const data = await api("group", { query: { code, session: sessionToken() } });
     group = data.group;
     me = { participantId, codeName };
     saveMe(code, me);
@@ -314,8 +314,8 @@ $("btn-send-reset").addEventListener("click", async () => {
   const email = $("a-forgot-email").value.trim();
   if (!email) return toast("Escribe tu correo");
   try {
-    const data = await api("reset-request", { method: "POST", body: { email } });
-    toast(data.emailSent ? "Revisa tu correo 📬 Te enviamos el enlace" : "No pudimos enviar el correo. Inténtalo más tarde.");
+    await api("reset-request", { method: "POST", body: { email } });
+    toast("Si ese correo tiene cuenta, te enviamos el enlace 📬");
   } catch (e) { toast(e.message); }
 });
 $("btn-do-reset").addEventListener("click", async () => {
@@ -334,7 +334,7 @@ $("btn-sheet-account").addEventListener("click", () => { closeSheets(); renderAc
 async function refreshGroup() {
   if (!group) return;
   try {
-    const data = await api("group", { query: { code: group.code } });
+    const data = await api("group", { query: { code: group.code, session: sessionToken() } });
     group = data.group;
     renderGroup();
     if (currentScreen === "screen-draw") renderDraw();
@@ -364,12 +364,14 @@ function renderGroup() {
     : group.participants.map((p, i) => `
       <div class="person"><div class="avatar">${avatars[i % avatars.length]}</div>
       <div><b>${p.codeName}</b><span>${p.wishlistCount > 0 ? `🎁 ${p.wishlistCount} deseo(s) en su lista` : "Sin deseos todavía"}</span>${(p.tags || []).length ? `<br>${p.tags.map((t) => `<span class="chip gold">${tasteIcon(t)}</span>`).join("")}` : ""}</div></div>`).join("");
-  const isOrg = !!(stored && stored.organizerToken);
+  const isOrg = group.isOrganizer === true || !!(stored && stored.organizerToken);
   $("organizer-card").classList.toggle("hidden", !isOrg);
   if (isOrg) $("org-wishlist").checked = group.wishlistEnabled;
+  $("org-guest-note").classList.toggle("hidden", !(isOrg && session?.guest));
   $("btn-draw").disabled = group.participants.length < 3 || group.drawn;
   $("btn-draw").textContent = group.drawn ? "✅ Sorteo ya realizado" : "🎲 Hacer el sorteo secreto";
 }
+$("btn-org-account").addEventListener("click", () => { renderAccount(); openSheet("sheet-account"); });
 $("btn-copy-code").addEventListener("click", () => group && copyText(group.code, "Código copiado 📋"));
 $("btn-invite").addEventListener("click", () => {
   if (!group) return;
@@ -418,8 +420,9 @@ async function renderWishes() {
 function renderMyWishes(list) {
   $("my-wishes").innerHTML = list.length === 0
     ? "<p class='small'>Tu lista está vacía. Agrega tu primer deseo arriba.</p>"
-    : list.map((w) => `<div class="wish"><div>🎁</div><div><b>${escapeHtml(w.text)}</b>${w.link ? `<br><a href="${escapeHtml(w.link)}" target="_blank" rel="noopener">Ver enlace ↗</a>` : ""}</div>${w.price ? `<span class="price">${escapeHtml(w.price)}</span>` : ""}</div>`).join("");
+    : list.map((w) => `<div class="wish"><div>🎁</div><div><b>${escapeHtml(w.text)}</b>${w.link && safeLink(w.link) ? `<br><a href="${escapeHtml(w.link)}" target="_blank" rel="noopener">Ver enlace ↗</a>` : ""}</div>${w.price ? `<span class="price">${escapeHtml(w.price)}</span>` : ""}</div>`).join("");
 }
+function safeLink(l) { return /^https?:\/\/\S+$/i.test(String(l || "").trim()); }
 let myWishesCache = [];
 $("btn-add-wish").addEventListener("click", async () => {
   const text = $("w-text").value.trim();
@@ -466,7 +469,7 @@ $("btn-reveal").addEventListener("click", async () => {
     $("reveal-wishlist").innerHTML = data.recipient.wishlistEnabled
       ? (w.length === 0
         ? "<p class='small center'>Esta persona no anotó deseos. ¡Sorpréndela con algo bonito!</p>"
-        : "<h3 style='margin-top:14px'>🎁 Su lista de deseos</h3>" + w.map((x) => `<div class="wish"><div>🎁</div><div><b>${escapeHtml(x.text)}</b>${x.link ? `<br><a href="${escapeHtml(x.link)}" target="_blank" rel="noopener">Ver enlace ↗</a>` : ""}</div>${x.price ? `<span class="price">${escapeHtml(x.price)}</span>` : ""}</div>`).join(""))
+        : "<h3 style='margin-top:14px'>🎁 Su lista de deseos</h3>" + w.map((x) => `<div class="wish"><div>🎁</div><div><b>${escapeHtml(x.text)}</b>${x.link && safeLink(x.link) ? `<br><a href="${escapeHtml(x.link)}" target="_blank" rel="noopener">Ver enlace ↗</a>` : ""}</div>${x.price ? `<span class="price">${escapeHtml(x.price)}</span>` : ""}</div>`).join(""))
       : "<p class='small center'>La lista de deseos está desactivada en este grupo.</p>";
     const ri = $("reveal-ideas");
     const rtags = data.recipient.tags || [];

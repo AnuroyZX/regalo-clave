@@ -21,6 +21,9 @@ solo descubre el nombre clave de la persona a la que le va a regalar.
   cada persona su propio amigo secreto: las parejas nunca salen en la vista pública.
 - Restablecer contraseña por correo con Resend: configura `RESEND_API_KEY` y
   `RESEND_FROM` en las variables de entorno de Netlify.
+- Protecciones: sorteo único, organizador por cuenta (no solo por dispositivo),
+  solo enlaces http(s) en deseos, límite de intentos en login/registro/reset y
+  revocación de sesiones al cambiar la contraseña.
 
 ## Despliegue
 
